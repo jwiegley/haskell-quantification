@@ -1,0 +1,124 @@
+#+TITLE:  Quantification in Haskell
+#+AUTHOR: John Wiegley
+#+EMAIL:  johnw@newartisans.com
+#+DATE:   14 Mar 2017
+
+#+DESCRIPTION: An intermediate guide to understanding quantification in Haskell
+#+KEYWORDS: lens haskell functional programming
+#+LANGUAGE: en
+
+\setbeamertemplate{footline}{}
+\setbeamerfont{block body}{size=\small}
+\definecolor{orchid}{RGB}{134, 134, 220}
+\setbeamercolor{block title}{fg=white,bg=orchid}
+\setbeamercolor{bgcolor}{fg=white,bg=blue}
+
+* Overview
+** Overview
+1. Review of quantification
+2. How it works in Haskell
+3. Using GHC extensions
+4. Parametricity and information hiding
+5. The ST Monad
+*** note                                                                                 :B_note:
+:PROPERTIES:
+:BEAMER_env: note
+:END:
+Give an introduction of myself and my background here, and ask whether people
+in the audience have much experience with the intersection between math and
+programming.
+* Quantification review
+** Quantification review
+\begin{center}
+∀
+forall
+\end{center}
+** Quantification review
+∀ a. a
+* How it works in Haskell
+* Using GHC extensions
+** GHC Extensions
+- ExplicitForAll
+- ScopedTypeVariables
+- RankNTypes
+- ExistentialQuantification
+- GADTs
+- ImpredicativeTypes
+- LiberalTypeSynonyms
+- UnicodeSyntax
+- TypeInType (explicit kind quantification)
+** ExistentialQuantification
+#+begin_src haskell
+data Exists = forall a. Exists a
+#+end_src
+
+That represents an existential type, to get at the "existential type" you need
+to unwrap it by pattern matching:
+
+#+begin_src haskell
+unexist :: Exists -> r
+unexist (Exists x) = foo x
+
+newtype Exists = Exists (forall r. (forall a. a -> r) -> r)
+
+  ∀ x. x ⇔ ¬ ∃ x. ¬ x
+¬ ∀ x. x ⇔   ∃ x. ¬ x
+  ∃ x. x ⇔ ¬ ∀ x. ¬ x
+¬ ∃ x. x ⇔   ∀ x. ¬ x
+#+end_src
+** Other GHC flags
+- -Wunused-foralls
+- -fprint-explicit-foralls
+** Impredicative polymorphism
+* Parametricity and information hiding
+** Generic programming
+** Local information hiding
+** Free theorems
+* The ST Monad
+** Unification
+** Skolemization
+** The ST Monad
+* Colophon
+
+#+STARTUP: beamer
+#+STARTUP: content fninline hidestars
+
+#+LaTeX_CLASS: beamer
+#+LaTeX_CLASS_OPTIONS: [utf8x,notes,17pt]
+
+#+BEAMER_THEME: [height=16mm] Rochester
+#+BEAMER_COLOR: seahorse
+
+#+OPTIONS:   H:2 toc:nil
+
+#+BEAMER_HEADER: \setbeamertemplate{navigation symbols}{}
+#+BEAMER_HEADER: \usepackage{courier}
+#+BEAMER_HEADER: \usepackage{helvet}
+#+BEAMER_HEADER: \usepackage{listings}
+#+BEAMER_HEADER: \usepackage{mathtools}
+#+BEAMER_HEADER: \usepackage{pdfcomment}
+
+#+BEAMER_HEADER: \SetUnicodeOption{mathletters}
+#+BEAMER_HEADER: \DeclareUnicodeCharacter{952}{\theta}
+
+#+BEAMER_HEADER: \lstset{
+#+BEAMER_HEADER:     keywordstyle=\color{blue}
+#+BEAMER_HEADER:   , basicstyle=\ttfamily\small
+#+BEAMER_HEADER:   , commentstyle={}
+#+BEAMER_HEADER:   , columns=fullflexible
+#+BEAMER_HEADER:   , showstringspaces=false
+#+BEAMER_HEADER:   , keepspaces=true=
+#+BEAMER_HEADER:   , breaklines=true
+#+BEAMER_HEADER:   , escapeinside={\%*}{*)},
+#+BEAMER_HEADER:   }
+
+#+BEAMER_HEADER: \newcommand{\head}[1]{\begin{center}
+#+BEAMER_HEADER: \vspace{13mm}\hspace{-1mm}\Huge{{#1}}
+#+BEAMER_HEADER: \end{center}}
+
+#+BEAMER_HEADER: \renewcommand{\note}[1]{\marginnote{\pdfcomment[icon=note]{#1}}}
+
+#+SELECT_TAGS: export
+#+EXCLUDE_TAGS: noexport
+
+#+COLUMNS: %20ITEM %13BEAMER_env(Env) %6BEAMER_envargs(Args) %4BEAMER_col(Col) %7BEAMER_extra(Extra)

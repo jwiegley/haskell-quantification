@@ -1,0 +1,10 @@
+*.vrb
+/auto/
+/haskell-quantification.aux
+/haskell-quantification.log
+/haskell-quantification.nav
+/haskell-quantification.out
+/haskell-quantification.snm
+/haskell-quantification.toc
+/haskell-quantification.upa
+/haskell-quantification.tex
