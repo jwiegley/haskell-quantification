@@ -15,64 +15,190 @@
 
 * Overview
 ** Overview
-1. Review of quantification
-2. How it works in Haskell
-3. Using GHC extensions
-4. Parametricity and information hiding
-5. The ST Monad
+1. Basic syntax
+2. GHC extensions
+3. Some theory
+4. Parametricity
+5. ST Monad
 *** note                                                                                 :B_note:
 :PROPERTIES:
 :BEAMER_env: note
 :END:
-Give an introduction of myself and my background here, and ask whether people
-in the audience have much experience with the intersection between math and
-programming.
-* Quantification review
-** Quantification review
-\begin{center}
-∀
-forall
-\end{center}
-** Quantification review
-∀ a. a
-* How it works in Haskell
-* Using GHC extensions
-** GHC Extensions
-- ExplicitForAll
-- ScopedTypeVariables
-- RankNTypes
-- ExistentialQuantification
-- GADTs
-- ImpredicativeTypes
-- LiberalTypeSynonyms
-- UnicodeSyntax
-- TypeInType (explicit kind quantification)
-** ExistentialQuantification
+This is a note.
+* Basic syntax
+** Universals
+*** Math
+\[ ∀ a, a \]
+*** Haskell
+:PROPERTIES:
+:BEAMER_act: <2->
+:END:
 #+begin_src haskell
+forall a. a
+#+end_src
+** Meaning
+*** As a universal
+#+begin_src haskell
+forall a. a
+#+end_src
+*** In other words...
+:PROPERTIES:
+:BEAMER_act: <2->
+:END:
+#+begin_src haskell
+undefined
+#+end_src
+* GHC extensions
+** GHC flags
+*** -Wunused-foralls
+Emits a warning in the specific case that a user writes explicit forall syntax
+with unused type variables.
+*** -fprint-explicit-foralls
+:PROPERTIES:
+:BEAMER_act: <2->
+:END:
+Makes GHC print explicit forall quantification at the top level of a type;
+normally this is suppressed.
+** ExplicitForAll
+*** \vspace*{-3.5ex}                                                                  :B_example:
+:PROPERTIES:
+:BEAMER_env: example
+:END:
+#+begin_src haskell
+{-# LANGUAGE ExplicitForAll #-}
+
+foo :: forall a b. a -> b
+foo = undefined
+#+end_src
+** ExplicitForAll
+*** \vspace*{-3.5ex}                                                                  :B_example:
+:PROPERTIES:
+:BEAMER_env: example
+:END:
+#+begin_src haskell
+{-# LANGUAGE ExplicitForAll #-}
+
+foo :: forall a. a -> forall b. b
+foo = undefined
+#+end_src
+** RankNTypes
+*** \vspace*{-3.5ex}                                                                  :B_example:
+:PROPERTIES:
+:BEAMER_env: example
+:END:
+#+begin_src haskell
+{-# LANGUAGE RankNTypes #-}
+
+bar :: (forall r s. r -> s) -> a -> b
+bar = id
+#+end_src
+** ExistentialQuantification
+*** \vspace*{-3.5ex}                                                                  :B_example:
+:PROPERTIES:
+:BEAMER_env: example
+:END:
+#+begin_src haskell
+{-# LANGUAGE ExistentialQuantification #-}
+
 data Exists = forall a. Exists a
 #+end_src
-
-That represents an existential type, to get at the "existential type" you need
-to unwrap it by pattern matching:
-
+** RankNTypes
+We'll come back to why this works, but we can use the /final encoding/ of a
+universal to represent an existential.
+*** \vspace*{-3.5ex}                                                                  :B_example:
+:PROPERTIES:
+:BEAMER_env: example
+:END:
 #+begin_src haskell
-unexist :: Exists -> r
-unexist (Exists x) = foo x
+{-# LANGUAGE RankNTypes #-}
 
-newtype Exists = Exists (forall r. (forall a. a -> r) -> r)
-
-  ∀ x. x ⇔ ¬ ∃ x. ¬ x
-¬ ∀ x. x ⇔   ∃ x. ¬ x
-  ∃ x. x ⇔ ¬ ∀ x. ¬ x
-¬ ∃ x. x ⇔   ∀ x. ¬ x
+newtype Exists = Exists {
+  getExists ::
+    forall r. (forall a. a -> r) -> r
+}
 #+end_src
-** Other GHC flags
-- -Wunused-foralls
-- -fprint-explicit-foralls
-** Impredicative polymorphism
-* Parametricity and information hiding
+** GADTSyntax or GADTs
+GADT syntax can also be used to encode existentials, without needing the full
+power of GADTs.
+*** \vspace*{-3.5ex}                                                                  :B_example:
+:PROPERTIES:
+:BEAMER_env: example
+:END:
+#+begin_src haskell
+{-# LANGUAGE GADTSyntax #-}
+
+data Exists where
+  Exists :: [forall a.] a -> Exists
+#+end_src
+** ScopedTypeVariables
+*** \vspace*{-3.5ex}                                                                  :B_example:
+:PROPERTIES:
+:BEAMER_env: example
+:END:
+#+begin_src haskell
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+
+baz :: forall s. Reifies s Int
+    => Tagged s Int -> Int
+baz (Tagged n) =
+    n + reflect (Proxy :: Proxy s)
+#+end_src
+* Some theory
+** Negation
+*** Math
+\[ ∀ a, ¬ a \]
+*** Haskell
+:PROPERTIES:
+:BEAMER_act: <2->
+:END:
+#+begin_src haskell
+forall a r. a -> r
+#+end_src
+*** note                                                                                 :B_note:
+:PROPERTIES:
+:BEAMER_env: note
+:END:
+Only =unsafeCoerce= has this type.
+** Existentials
+*** Math
+\[ ∃ a, a \]
+*** Haskell?
+:PROPERTIES:
+:BEAMER_act: <2->
+:END:
+#+begin_src haskell
+exists a. a
+#+end_src
+** Existentials
+*** Haskell
+#+begin_src haskell
+forall r. (forall a. a -> r) -> r
+#+end_src
+** Relationships
+\begin{center}
+\begin{tabular}{ r @{\ \ \,\( \Longleftrightarrow \)\,\ \ } r }
+\(   ∀ a, a \) & \( ¬ ∃ a, ¬ a \) \\
+\(   ∃ a, a \) & \( ¬ ∀ a, ¬ a \) \\
+\( ¬ ∀ a, a \) & \(   ∃ a, ¬ a \) \\
+\( ¬ ∃ a, a \) & \(   ∀ a, ¬ a \)
+\end{tabular}
+\end{center}
+** Derivation
+\begin{align*}
+∃ a, a &= ¬ ∀ a, ¬ a            \tag*{relation}  \\
+       &= ∀ r, (∀ a, ¬ a) → r   \tag*{negation}  \\
+       &= ∀ r, (∀ a, a → r) → r \tag*{negation}
+\end{align*}
+*** note                                                                                 :B_note:
+:PROPERTIES:
+:BEAMER_env: note
+:END:
+I could show the Coq code now.
+* Parametricity
 ** Generic programming
-** Local information hiding
+** Information hiding
 ** Free theorems
 * The ST Monad
 ** Unification
@@ -94,29 +220,27 @@ newtype Exists = Exists (forall r. (forall a. a -> r) -> r)
 #+BEAMER_HEADER: \setbeamertemplate{navigation symbols}{}
 #+BEAMER_HEADER: \usepackage{courier}
 #+BEAMER_HEADER: \usepackage{helvet}
-#+BEAMER_HEADER: \usepackage{listings}
-#+BEAMER_HEADER: \usepackage{mathtools}
-#+BEAMER_HEADER: \usepackage{pdfcomment}
 
+#+BEAMER_HEADER: \usepackage{pdfcomment}
+#+BEAMER_HEADER: \renewcommand{\note}[1]{\marginnote{\pdfcomment[icon=note]{#1}}}
+
+#+BEAMER_HEADER: \usepackage{mathtools}
 #+BEAMER_HEADER: \SetUnicodeOption{mathletters}
 #+BEAMER_HEADER: \DeclareUnicodeCharacter{952}{\theta}
 
-#+BEAMER_HEADER: \lstset{
-#+BEAMER_HEADER:     keywordstyle=\color{blue}
-#+BEAMER_HEADER:   , basicstyle=\ttfamily\small
-#+BEAMER_HEADER:   , commentstyle={}
-#+BEAMER_HEADER:   , columns=fullflexible
-#+BEAMER_HEADER:   , showstringspaces=false
-#+BEAMER_HEADER:   , keepspaces=true=
-#+BEAMER_HEADER:   , breaklines=true
-#+BEAMER_HEADER:   , escapeinside={\%*}{*)},
-#+BEAMER_HEADER:   }
+#+BEAMER_HEADER: \usepackage{minted}
+
+#+name: setup-minted
+#+begin_src emacs-lisp :exports both :results silent
+(setq org-latex-listings 'minted)
+(setq org-latex-minted-options
+      '(("fontsize" "\\footnotesize")
+        ("linenos" "true")))
+#+end_src
 
 #+BEAMER_HEADER: \newcommand{\head}[1]{\begin{center}
 #+BEAMER_HEADER: \vspace{13mm}\hspace{-1mm}\Huge{{#1}}
 #+BEAMER_HEADER: \end{center}}
-
-#+BEAMER_HEADER: \renewcommand{\note}[1]{\marginnote{\pdfcomment[icon=note]{#1}}}
 
 #+SELECT_TAGS: export
 #+EXCLUDE_TAGS: noexport

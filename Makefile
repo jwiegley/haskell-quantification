@@ -14,10 +14,12 @@ present: all
 %.tex: %.org
 	$(EMACS) -batch -L ~/.emacs.d \
 	    -l init -l settings -l org-settings -l ox-beamer \
-	    --eval="(progn (find-file \"$<\") (org-beamer-export-to-latex))"
+	    --eval="(progn (find-file \"$<\") (setq org-export-latex-minted-options '((\"fontsize\" \"\\\\small\") (\"linenos\" \"true\"))) (org-beamer-export-to-latex))"
 
 %.pdf: %.tex
-	pdflatex $< && pdflatex $< && pdflatex $<
+	pdflatex -shell-escape -interaction nonstopmode $<
+	pdflatex -shell-escape -interaction nonstopmode $<
+	pdflatex -shell-escape -interaction nonstopmode $<
 
 clean:
 	rm -fr html
