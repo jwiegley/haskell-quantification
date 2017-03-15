@@ -1,7 +1,8 @@
-Require Export Coq.Unicode.Utf8.
-Require Export FunctionalExtensionality.
+Require Import Coq.Unicode.Utf8.
 
 Set Universe Polymorphism.
+
+(**************************************************************************)
 
 Section LogicalQuantification.
 
@@ -28,6 +29,8 @@ Lemma not_exists_not_forall : (¬ ∃ x, x) ↔ (  ∀ x, ¬ x).
 Proof. intuition; eauto. Qed.
 
 End LogicalQuantification.
+
+(**************************************************************************)
 
 Section Quantification.
 
@@ -58,11 +61,15 @@ Proof. intuition; eauto. Qed.
 
 End Quantification.
 
+(**************************************************************************)
+
 Definition Ex := ∃ x, x.
 
 Inductive Exists : Prop := Here : ∀ x : Prop, x → Exists.
 
 Definition Exists' : Prop := ∀ r : Prop, (∀ x : Prop, x → r) → r.
+
+(**************************************************************************)
 
 Require Import Coq.Program.Basics.
 
@@ -93,6 +100,8 @@ Proof.
   destruct x; auto.
 Qed.
 
+Require Import FunctionalExtensionality.
+
 Lemma phi_psi : forall x : Exists', phi (psi x) = x.
 Proof.
   unfold Exists', phi, psi; intros.
@@ -100,4 +109,32 @@ Proof.
   extensionality r.
   extensionality t.
   apply existence_free_theorem.
+Qed.
+
+(**************************************************************************)
+
+Definition isomorphic (X Y : Type) : Prop :=
+  exists (f : X → Y) (g : Y → X), f ∘ g = id /\ g ∘ f = id.
+
+Notation "X ≅ Y" := (isomorphic X Y) (at level 100).
+
+Require Import Hask.Control.Monad.Cont.
+
+(* a ≅ Identity a
+     ≅ Yoneda Identity a
+     ≅ Ran Identity Identity a
+     ≅ forall r, (a → Identity r) → Identity r
+     ≅ forall r, (a → r) → r
+*)
+
+Theorem cont_iso : forall a, a ≅ forall r, (a → r) → r.
+Proof.
+  intros.
+  exists (fun x _ k => k x).
+  exists (fun k => k _ id).
+  split; trivial.
+  extensionality x.
+  extensionality t.
+  extensionality f.
+  apply Cont_parametricity.
 Qed.

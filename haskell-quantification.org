@@ -18,13 +18,8 @@
 1. Basic syntax
 2. GHC extensions
 3. Some theory
-4. Parametricity
-5. The ST Monad
-*** note                                                                                 :B_note:
-:PROPERTIES:
-:BEAMER_env: note
-:END:
-This is a note.
+4. The ST Monad
+5. Parametricity
 * Basic syntax
 ** Universals
 *** Math
@@ -117,11 +112,16 @@ hmm :: (forall f. Functor f
 
 data Exists = forall a. Exists a
 #+end_src
-*** note                                                                                 :B_note:
-:PROPERTIES:
-:BEAMER_env: note
-:END:
-Not the same as storing =undefined=.
+** ExistentialQuantification
+#+begin_src haskell
+{-# LANGUAGE ExistentialQuantification #-}
+
+data Machine i log o = forall s. Machine
+  { monitorState :: s
+  , monitorFunc  ::
+      i -> StateT s (Writer [log]) o
+  }
+#+end_src
 ** RankNTypes
 We'll come back to why this works, but we can use the /final encoding/ of the
 universal to represent an existential. \\
@@ -212,20 +212,47 @@ forall r. (forall a. a -> r) -> r
 \(   ∃ a, a \) & \( ¬ ∀ a, ¬ a \) \\
 \( ¬ ∀ a, a \) & \(   ∃ a, ¬ a \) \\
 \( ¬ ∃ a, a \) & \(   ∀ a, ¬ a \)
-\end{tabular}
+\end{tabular}\blankfootnote{Proofs available upon request\dots{}}
 \end{center}
 ** Derivation
 \begin{align*}
 ∃ a, a &= ¬ ∀ a, ¬ a            \\
        &= ∀ r, (∀ a, ¬ a) → r   \\
-       &= ∀ r, (∀ a, a → r) → r 
+       &= ∀ r, (∀ a, a → r) → r
 \end{align*}
-*** note                                                                                 :B_note:
+** Another derivation
+\begin{center}
+\begin{tabular}{ r @{\ \ \,\( \footnotesize\cong \)\,\ \ } l }
+\texttt{\footnotesize a}
+  & \texttt{\footnotesize Id a} \\
+  & \texttt{\footnotesize Yoneda Id a} \\
+  & \texttt{\footnotesize Ran Id Id a} \\
+  & \texttt{\footnotesize forall r, (a → Id r) → Id r} \\
+  & \texttt{\footnotesize forall r, (a → r) → r}
+\end{tabular}
+\end{center}
+** Be careful of placement
+*** Not the same as undefined
+\color{red} \[ ∀ a, a \ ≇ \ ∀ r, (∀ a, a → r) → r \]
+*** Haskell
 :PROPERTIES:
-:BEAMER_env: note
+:BEAMER_act: <2->
 :END:
-I could show the Coq code now.
-* Parametricity
+#+begin_src haskell
+works :: forall r. (forall a. a -> r) -> r
+works k = k (10 :: Int)
+#+end_src
+** Another undefined
+*** undefined, finally encoded
+\[ ∀ a, a \ ≅ \ ∀ a, ∀ r, (a → r) → r \]
+*** Haskell
+:PROPERTIES:
+:BEAMER_act: <2->
+:END:
+#+begin_src haskell
+impossible :: forall a r. (a -> r) -> r
+impossible k = k (10 :: Int)
+#+end_src
 ** Generic programming
 *** Concrete
 #+begin_src haskell
@@ -251,7 +278,7 @@ void stable_sort(
 :BEAMER_act: <2->
 :END:
 =RandomIterator= must meet the requirements of =ValueSwappable= and
-=RandomAccessIterator=.
+=RandomAccessIterator=. \\
 *** General
 #+begin_src haskell
 template <typename RandomIterator>
@@ -288,21 +315,48 @@ class MySorter {
 :END:
 Mention concepts.
 ** Information hiding
+Objects (ala OOP) are built on existentials.\footnote{See the section on
+/Existential Objects/ in TAPL.}
+** Haskell objects
 #+begin_src haskell
-data Machine i l o = forall s. Machine
-  { monitorState :: s
-  , monitorFunc  ::
-      i -> StateT s (Writer [l]) o
-  }
+data Object = forall a. Real a => Object a
+
+add :: Object -> Object -> Object
+add (Object x) (Object y) =
+  Object (toRational x + toRational y)
+
+example :: (forall a. Real a => a -> r) -> r
+example k =
+  case add (Object (10 :: Int))
+           (Object (1.0 :: Float)) of
+      Object n -> k n
 #+end_src
-** Parametricity
+** But not this...
 #+begin_src haskell
-foo :: (a -> b) -> [a] -> [b]
-foo = ...
+bad_example :: forall a. Real a => a
+bad_example =
+  case add (Object (10 :: Int))
+           (Object (1.0 :: Float)) of
+      Object n -> n
 #+end_src
 * The ST Monad
 ** The ST Monad
 Over to Emacs\dots{}
+* Parametricity
+** Parametricity
+#+begin_src haskell
+myMap :: forall a b. (a -> b) -> [a] -> [b]
+
+myMap f (x:xs) = f x : myMap f xs
+myMap f _ = []
+#+end_src
+** Parametricity
+Gives rise to the following law, that /no implementation may avoid/: \\
+*** Free Theorem for myMap
+\[ map\ f ∘ myMap\ g = myMap\ f ∘ map\ g \]
+** Parametricity
+The more general a function is, the more it's restricted to information in its
+own type.
 * Colophon
 
 #+STARTUP: beamer
@@ -321,7 +375,7 @@ Over to Emacs\dots{}
 #+BEAMER_HEADER: \usepackage{helvet}
 
 #+BEAMER_HEADER: \usepackage{pdfcomment}
-#+BEAMER_HEADER: \renewcommand{\note}[1]{\marginnote{\pdfcomment[icon=note]{#1}}}
+#+BEAMER_HEADER: \renewcommand{\note}[1]{\marginnote{\pdfcomment[icon=Note]{#1}}}
 
 #+BEAMER_HEADER: \usepackage{mathtools}
 #+BEAMER_HEADER: \SetUnicodeOption{mathletters}
@@ -336,6 +390,12 @@ Over to Emacs\dots{}
 #       '(("fontsize" "\\footnotesize")
 #         ("linenos" "true")))
 # #+end_src
+
+#+BEAMER_HEADER: \let\svthefootnote\thefootnote
+#+BEAMER_HEADER: \newcommand\blankfootnote[1]{%
+#+BEAMER_HEADER:   \let\thefootnote\relax\footnotetext{#1}%
+#+BEAMER_HEADER:   \let\thefootnote\svthefootnote%
+#+BEAMER_HEADER: }
 
 #+BEAMER_HEADER: \newcommand{\head}[1]{\begin{center}
 #+BEAMER_HEADER: \vspace{13mm}\hspace{-1mm}\Huge{{#1}}

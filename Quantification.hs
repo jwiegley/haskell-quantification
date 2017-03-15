@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTSyntax #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE ImpredicativeTypes #-}
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -36,6 +37,12 @@ newtype ExistsRNT = ExistsRNT {
 data ExistsG where
   ExistsG :: a -> ExistsG
 
+rankn1good :: forall r. (forall a. a -> r) -> r
+rankn1good k = k (10 :: Int)
+
+-- rankn1bad :: forall a r. (a -> r) -> r
+-- rankn1bad k = k 10
+
 type Lens' s a =
   forall f. Functor f
     => (a -> f a) -> s -> f s
@@ -60,7 +67,10 @@ hmm' l p = getConst $ l Const p
 baz :: forall s. Reifies s Int => Tagged s Int -> Int
 baz (Tagged n) = n + reflect (Proxy :: Proxy s)
 
--- type T = (Int, forall a. a -> Int)
+type PT = (Int, forall a. a -> Int)
+
+pt :: PT -> Int
+pt x@(n, p) = n + p x
 
 -- type TLens = (Int, Lens' (Int, Int) Int)
 
@@ -74,6 +84,36 @@ data Machine i l o = forall s. Machine
     , monitorFunc  ::
         i -> StateT s (Writer [l]) o
     }
+
+data Object = forall a. Real a => Object a
+
+add :: Object -> Object -> Object
+add (Object x) (Object y) =
+  Object (toRational x + toRational y)
+
+example :: (forall a. Real a => a -> r) -> r
+example k =
+  case add (Object (10 :: Int))
+           (Object (1.0 :: Float)) of
+      Object n -> k n
+
+-- bad_example :: forall a. Real a => a
+-- bad_example' =
+--   case add (Object (10 :: Int))
+--            (Object (1.0 :: Float)) of
+--       Object n -> n
+
+data Object' a = Real a => Object' a
+
+add' :: Object' a -> Object' a -> Object' a
+add' (Object' x) (Object' y) =
+  Object' (x + y)
+
+-- example' :: (forall a. Real a => a -> r) -> r
+-- example' k =
+--   case add' (Object' (10 :: Int))
+--             (Object' (1.0 :: Float)) of
+--       Object' n -> k n
 
 data Typed = forall a. Typeable a => Typed a
 
@@ -99,9 +139,9 @@ readSTRef :: Typeable a => STRef s a -> ST s a
 readSTRef (STRef n) = ST $ do
     m <- get
     case m ! n of
-        Typed x -> case cast x of
-            Nothing -> error "readSTRef: wrong type"
-            Just y  -> return y
+        Typed x ->
+            maybe (error "readSTRef: wrong type")
+                  return (cast x)
 
 writeSTRef :: Typeable a => STRef s a -> a -> ST s ()
 writeSTRef (STRef n) a = ST $
