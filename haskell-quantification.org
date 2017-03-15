@@ -19,7 +19,7 @@
 2. GHC extensions
 3. Some theory
 4. Parametricity
-5. ST Monad
+5. The ST Monad
 *** note                                                                                 :B_note:
 :PROPERTIES:
 :BEAMER_env: note
@@ -60,10 +60,6 @@ with unused type variables.
 Makes GHC print explicit forall quantification at the top level of a type;
 normally this is suppressed.
 ** ExplicitForAll
-*** \vspace*{-3.5ex}                                                                  :B_example:
-:PROPERTIES:
-:BEAMER_env: example
-:END:
 #+begin_src haskell
 {-# LANGUAGE ExplicitForAll #-}
 
@@ -71,10 +67,6 @@ foo :: forall a b. a -> b
 foo = undefined
 #+end_src
 ** ExplicitForAll
-*** \vspace*{-3.5ex}                                                                  :B_example:
-:PROPERTIES:
-:BEAMER_env: example
-:END:
 #+begin_src haskell
 {-# LANGUAGE ExplicitForAll #-}
 
@@ -82,33 +74,57 @@ foo :: forall a. a -> forall b. b
 foo = undefined
 #+end_src
 ** RankNTypes
-*** \vspace*{-3.5ex}                                                                  :B_example:
-:PROPERTIES:
-:BEAMER_env: example
-:END:
 #+begin_src haskell
 {-# LANGUAGE RankNTypes #-}
 
 bar :: (forall r s. r -> s) -> a -> b
-bar = id
+bar f a = f a
+#+end_src
+** RankNTypes (Lens)
+#+begin_src haskell
+type Lens' s a =
+  forall f. Functor f
+    => (a -> f a) -> s -> f s
+
+_fst :: Lens' (Int, Int) Int
+_fst f (x, y) = (,y) <$> f x
+
+_fst :: Functor f
+     => (Int -> f Int)
+     -> (Int, Int)
+     -> f (Int, Int)
+#+end_src
+** RankNTypes (Lens)
+#+begin_src haskell
+type Lens' s a =
+  forall f. Functor f
+    => (a -> f a) -> s -> f s
+
+hmm :: Lens' (Int, Int) Int
+    -> (Int, Int) -> Int
+hmm l p = getConst $ l Const p
+
+hmm :: (forall f. Functor f
+          => (Int -> f Int)
+          -> (Int, Int)
+          -> f (Int, Int))
+    -> (Int, Int)
+    -> Int
 #+end_src
 ** ExistentialQuantification
-*** \vspace*{-3.5ex}                                                                  :B_example:
-:PROPERTIES:
-:BEAMER_env: example
-:END:
 #+begin_src haskell
 {-# LANGUAGE ExistentialQuantification #-}
 
 data Exists = forall a. Exists a
 #+end_src
-** RankNTypes
-We'll come back to why this works, but we can use the /final encoding/ of a
-universal to represent an existential.
-*** \vspace*{-3.5ex}                                                                  :B_example:
+*** note                                                                                 :B_note:
 :PROPERTIES:
-:BEAMER_env: example
+:BEAMER_env: note
 :END:
+Not the same as storing =undefined=.
+** RankNTypes
+We'll come back to why this works, but we can use the /final encoding/ of the
+universal to represent an existential. \\
 #+begin_src haskell
 {-# LANGUAGE RankNTypes #-}
 
@@ -119,31 +135,44 @@ newtype Exists = Exists {
 #+end_src
 ** GADTSyntax or GADTs
 GADT syntax can also be used to encode existentials, without needing the full
-power of GADTs.
-*** \vspace*{-3.5ex}                                                                  :B_example:
-:PROPERTIES:
-:BEAMER_env: example
-:END:
+power of GADTs. \\
 #+begin_src haskell
 {-# LANGUAGE GADTSyntax #-}
 
 data Exists where
-  Exists :: [forall a.] a -> Exists
+  Exists :: a -> Exists
 #+end_src
 ** ScopedTypeVariables
-*** \vspace*{-3.5ex}                                                                  :B_example:
-:PROPERTIES:
-:BEAMER_env: example
-:END:
 #+begin_src haskell
-{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 baz :: forall s. Reifies s Int
     => Tagged s Int -> Int
 baz (Tagged n) =
-    n + reflect (Proxy :: Proxy s)
+  n + reflect (Proxy :: Proxy s)
+#+end_src
+** ImpredicativeTypes (Avoid!)
+#+begin_src haskell
+{-# LANGUAGE ImpredicativeTypes #-}
+
+type T = (Int, forall a. a -> Int)
+#+end_src
+** ImpredicativeTypes (Avoid!)
+#+begin_src haskell
+{-# LANGUAGE ImpredicativeTypes #-}
+
+type TLens = (Int, Lens' (Int, Int) Int)
+#+end_src
+** ImpredicativeTypes (Solution)
+#+begin_src haskell
+{-# LANGUAGE RankNTypes #-}
+
+newtype Wrapped r = Wrapped {
+  getWrapped :: forall a. a -> r
+}
+
+type T = (Int, Wrapped Int)
 #+end_src
 * Some theory
 ** Negation
@@ -187,9 +216,9 @@ forall r. (forall a. a -> r) -> r
 \end{center}
 ** Derivation
 \begin{align*}
-∃ a, a &= ¬ ∀ a, ¬ a            \tag*{relation}  \\
-       &= ∀ r, (∀ a, ¬ a) → r   \tag*{negation}  \\
-       &= ∀ r, (∀ a, a → r) → r \tag*{negation}
+∃ a, a &= ¬ ∀ a, ¬ a            \\
+       &= ∀ r, (∀ a, ¬ a) → r   \\
+       &= ∀ r, (∀ a, a → r) → r 
 \end{align*}
 *** note                                                                                 :B_note:
 :PROPERTIES:
@@ -198,12 +227,82 @@ forall r. (forall a. a -> r) -> r
 I could show the Coq code now.
 * Parametricity
 ** Generic programming
+*** Concrete
+#+begin_src haskell
+sort :: [Int] -> [Int]
+#+end_src
+*** General
+:PROPERTIES:
+:BEAMER_act: <2->
+:END:
+#+begin_src haskell
+sort :: Ord a => [a] -> [a]
+#+end_src
+** Generic programming (C++)
+*** Concrete
+#+begin_src c++
+void stable_sort(
+  std::vector<Int>::iterator,
+  std::vector<Int>::iterator
+);
+#+end_src
+** Generic programming (C++)
+:PROPERTIES:
+:BEAMER_act: <2->
+:END:
+=RandomIterator= must meet the requirements of =ValueSwappable= and
+=RandomAccessIterator=.
+*** General
+#+begin_src haskell
+template <typename RandomIterator>
+void stable_sort(RandomIterator first,
+                 RandomIterator last);
+#+end_src
+*** note                                                                                 :B_note:
+:PROPERTIES:
+:BEAMER_env: note
+:END:
+Mention concepts.
+** Generic programming (Java)
+*** Concrete
+#+begin_src java
+class MySorter {
+  public static void sort(List<Int> list);
+};
+#+end_src
+** Generic programming (Java)
+:PROPERTIES:
+:BEAMER_act: <2->
+:END:
+*** General
+#+begin_src java
+class MySorter {
+  public static
+    <T extends Comparable<? super T>>
+      void sort(List<T> list);
+};
+#+end_src
+*** note                                                                                 :B_note:
+:PROPERTIES:
+:BEAMER_env: note
+:END:
+Mention concepts.
 ** Information hiding
-** Free theorems
+#+begin_src haskell
+data Machine i l o = forall s. Machine
+  { monitorState :: s
+  , monitorFunc  ::
+      i -> StateT s (Writer [l]) o
+  }
+#+end_src
+** Parametricity
+#+begin_src haskell
+foo :: (a -> b) -> [a] -> [b]
+foo = ...
+#+end_src
 * The ST Monad
-** Unification
-** Skolemization
 ** The ST Monad
+Over to Emacs\dots{}
 * Colophon
 
 #+STARTUP: beamer
@@ -230,13 +329,13 @@ I could show the Coq code now.
 
 #+BEAMER_HEADER: \usepackage{minted}
 
-#+name: setup-minted
-#+begin_src emacs-lisp :exports both :results silent
-(setq org-latex-listings 'minted)
-(setq org-latex-minted-options
-      '(("fontsize" "\\footnotesize")
-        ("linenos" "true")))
-#+end_src
+# #+name: setup-minted
+# #+begin_src emacs-lisp :exports both :results silent
+# (setq org-latex-listings 'minted)
+# (setq org-latex-minted-options
+#       '(("fontsize" "\\footnotesize")
+#         ("linenos" "true")))
+# #+end_src
 
 #+BEAMER_HEADER: \newcommand{\head}[1]{\begin{center}
 #+BEAMER_HEADER: \vspace{13mm}\hspace{-1mm}\Huge{{#1}}
