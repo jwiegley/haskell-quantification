@@ -77,6 +77,8 @@ bar f a = f a
 #+end_src
 ** RankNTypes (Lens)
 #+begin_src haskell
+-- RankNTypes _would_ be needed to
+-- define this synonym
 type Lens' s a =
   forall f. Functor f
     => (a -> f a) -> s -> f s
@@ -86,8 +88,7 @@ _fst f (x, y) = (,y) <$> f x
 
 _fst :: Functor f
      => (Int -> f Int)
-     -> (Int, Int)
-     -> f (Int, Int)
+     -> (Int, Int) -> f (Int, Int)
 #+end_src
 ** RankNTypes (Lens)
 #+begin_src haskell
